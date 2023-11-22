@@ -1,3 +1,0 @@
-Before Training
-90.0, 605.0, 485.0, 380.0, 220.0,  Average: 356.0, 
-After Training
