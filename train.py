@@ -31,85 +31,28 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import cv2
 args = get_args()
 
-game_ckpts = {
-        'AirRaidNoFrameskip-v4': '/lab/kiran/logs/rllib/atari/4stack/1.a_AirRaidNoFrameskip-v4_singlegame_full_4STACK_CONT_ATARI_EXPERT_4STACK_TRAIN_RESNET_0.1_0.01_512_512.pt_PolicyNotLoaded_0.0_20000_2000_4stack/23_08_06_01_30_05/checkpoint/',
-        'CarnivalNoFrameskip-v4': '/lab/kiran/logs/rllib/atari/4stack/1.a_CarnivalNoFrameskip-v4_singlegame_full_4STACK_CONT_ATARI_EXPERT_4STACK_TRAIN_RESNET_0.1_0.01_512_512.pt_PolicyNotLoaded_0.0_20000_2000_4stack/23_08_07_18_30_07/checkpoint/',
-        'DemonAttackNoFrameskip-v4': '/lab/kiran/logs/rllib/atari/4stack/1.a_DemonAttackNoFrameskip-v4_singlegame_full_4STACK_CONT_ATARI_EXPERT_4STACK_TRAIN_RESNET_0.1_0.01_512_512.pt_PolicyNotLoaded_0.0_20000_2000_4stack/23_08_06_12_34_09/checkpoint/',
-        'NameThisGameNoFrameskip-v4': '/lab/kiran/logs/rllib/atari/4stack/1.a_NameThisGameNoFrameskip-v4_singlegame_full_4STACK_CONT_ATARI_EXPERT_4STACK_TRAIN_RESNET_0.1_0.01_512_512.pt_PolicyNotLoaded_0.0_20000_2000_4stack/23_08_06_09_14_07/checkpoint/',
-        'SpaceInvadersNoFrameskip-v4': '/lab/kiran/logs/rllib/atari/4stack/1.a_SpaceInvadersNoFrameskip-v4_singlegame_full_4STACK_CONT_ATARI_EXPERT_4STACK_TRAIN_RESNET_0.1_0.01_512_512.pt_PolicyNotLoaded_0.0_20000_2000_4stack/23_08_06_13_44_50/checkpoint/',
-        }
-
-game_trans = {
-    'trained_4stack_airraid': 'AirRaidNoFrameskip-v4',
-    'trained_4stack_carnival': 'CarnivalNoFrameskip-v4',
-    'trained_4stack_demonattack': 'DemonAttackNoFrameskip-v4',
-    'trained_4stack_namethisgame': 'NameThisGameNoFrameskip-v4',
-    'trained_4stack_spaceinvaders': 'SpaceInvadersNoFrameskip-v4'
-        }
-def log_write(encodernet, mode):
-    f = open(args.texpname + '_' + args.expname + '.txt', mode)
-    if mode == 'w':
-        f.write('Before Training\n')
-    elif mode == 'a':
-        f.write('After Training\n')
-    f.close()
-
-    res = []
-    for _ in range(args.nrounds):
-        reward_val = eval_adapter(
-            game_ckpts[game_trans[args.texpname]], game_ckpts[game_trans[args.expname]],
-                game_trans[args.expname], encodernet)
-        res.append(reward_val)
-    average = sum(res) / len(res)
-    print(average)
-    f = open(args.texpname + '_' + args.expname + '.txt', 'a')
-    f.write(' Average: ' + str(average) + ', ')
-    f.write('\nAfter Training\n')
-    f.close()
 
 
-if 'DUAL' in args.model:
-    # negloader -> tset, #posloader -> eset
-    # len(tset) > len(eset)
-    # negloader should be loading the teacher dataset
-    encodernet, teachernet, negloader, posloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
-        True)
 
-elif 'TCN' in args.model or 'SOM' in args.model or 'VEP' in args.model or 'VIP' in args.model:
-    encodernet, negloader, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
-        True)
-elif 'CONT' in args.model:
-    encodernet, negloader, posloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
-        True)
-elif 'FPV' in args.model:
+
+
+if 'FPV' in args.model:
     fpvencoder, bevencoder, negloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
         True)
 else:
     encodernet, negloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(True)
 
-# select which contrastive loss to train
-if 'CONT' in args.model:
-    # loss_func = InfoNCE(temperature=args.temperature, negative_mode='unpaired') # negative_mode='unpaired' is the default value
-    loss_func = losses.ContrastiveLoss()
 
-elif 'FPV' in args.model:
+if 'FPV' in args.model:
     #loss_func = utils.clip_loss
     loss_func = losses.ContrastiveLoss()
 elif 'LSTM' in args.model and 'CARLA' in args.model:
     #loss_func = nn.MSELoss()
     loss_func = utils.gmm_loss
-elif 'VIP' in args.model:
-    loss_func = utils.vip_loss
-elif 'TCN' in args.model or 'SOM' in args.model:
-    loss_func = losses.ContrastiveLoss()
-
-elif 'VEP' in args.model:
-    loss_func = losses.ContrastiveLoss()
 else:
     loss_func = utils.vae_loss
 
-if 'DUAL' in args.model:
-    log_write(encodernet, 'w')
+
 
 if 'LSTM' in args.model and 'CARLA' in args.model:
     latent_cls = []   # contains representations of 10 bev classes
@@ -148,8 +91,8 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
     else:
         encodernet.train()
 
-    for i, traindata in enumerate(tqdm(trainloader, leave=False)):
 
+    for i, traindata in enumerate(tqdm(trainloader, leave=False)):
 
         if 'CONT' in args.model:
             try:
@@ -311,204 +254,7 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             # regression
 #            loss = F.mse_loss(image_embed, targ_embed)
 
-        elif 'TCN' in args.model:
-
-            #try:
-            #    negdata = next(negiterator)
-            #except StopIteration:
-            #    negiterator = iter(negloader)
-            #    negdata = next(negiterator)
-            
-            
-            #don't use this yet
-            #neg_reshape_val = negdata.to(device) / div_val
-
-            
-
-            if '3CHAN' in args.model:
-                pos_reshape_val = traindata[0].to(device) / div_val
-                pos_aux = traindata[1].to(device)
-                query_imgs, pos_imgs, neg_imgs = torch.split(pos_reshape_val, 1, dim=1)
-                query_aux, pos_aux, neg_aux = torch.split(pos_aux, 1, dim=1)
-                query = encodernet(torch.squeeze(query_imgs), torch.squeeze(query_aux))
-                positives = encodernet(torch.squeeze(pos_imgs), torch.squeeze(pos_aux))
-                negatives = encodernet(torch.squeeze(neg_imgs), torch.squeeze(neg_aux))               
-            
-            else:
-                pos_reshape_val = traindata.to(device) / div_val
-                query_imgs, pos_imgs, neg_imgs = torch.split(pos_reshape_val, 1, dim=1)
-                query = encodernet(query_imgs.reshape(query_imgs.shape[0], 1, 84, 84))
-                positives = encodernet(pos_imgs.reshape(pos_imgs.shape[0], 1, 84, 84))
-                negatives = encodernet(neg_imgs.reshape(neg_imgs.shape[0], 1, 84, 84))
-            
-            # allocat classes for queries, positives and negatives
-            posclasses = torch.arange(start=0, end=query.shape[0])
-            negclasses = torch.arange(start=query.shape[0], end=query.shape[0] + negatives.shape[0])
-            loss = loss_func(torch.cat([query, positives, negatives], axis=0),
-                                torch.cat([posclasses, posclasses, negclasses], axis=0))
-
-        elif 'SOM' in args.model:
-
-            try:
-                negdata = next(negiterator)
-            except StopIteration:
-                negiterator = iter(negloader)
-                negdata = next(negiterator)
-            
-            
-            if '3CHAN' in args.model:
-                neg_reshape_val = negdata[0].to(device) / div_val
-                neg_aux = negdata[1].to(device)
-
-                pos_reshape_val = traindata[0].to(device) / div_val
-                all_aux = traindata[1].to(device)
-
-                query_imgs, pos_imgs = torch.split(pos_reshape_val, 1, dim=1)
-                query_aux, pos_aux = torch.split(all_aux, 1, dim=1)
-
-                query = encodernet(torch.squeeze(query_imgs), torch.squeeze(query_aux))
-                positives = encodernet(torch.squeeze(pos_imgs), torch.squeeze(pos_aux))
-                negatives = encodernet(torch.squeeze(neg_reshape_val), torch.squeeze(neg_aux))
-
-            else:
-                neg_reshape_val = negdata.to(device) / div_val
-                pos_reshape_val = traindata.to(device) / div_val
-
-                query_imgs, pos_imgs = torch.split(pos_reshape_val, 1, dim=1)
-                neg_imgs = neg_reshape_val
-
-                query = encodernet(query_imgs.reshape(query_imgs.shape[0], 1, 84, 84))
-                positives = encodernet(pos_imgs.reshape(pos_imgs.shape[0], 1, 84, 84))
-                negatives = encodernet(neg_imgs.reshape(neg_imgs.shape[0], 1, 84, 84))
-
-
-            # allocat classes for queries, positives and negatives
-            posclasses = torch.arange(start=0, end=query.shape[0])
-            negclasses = torch.arange(start=query.shape[0], end=query.shape[0] + negatives.shape[0])
-            loss = loss_func(torch.cat([query, positives, negatives], axis=0),
-                                torch.cat([posclasses, posclasses, negclasses], axis=0))
-
-
-        elif 'VEP' in args.model:
-
-            try:
-                negdata = next(negiterator)
-            except StopIteration:
-                negiterator = iter(negloader)
-                negdata = next(negiterator)
-            
-            
-            #don't use this yet
-            #neg_reshape_val = negdata.to(device) / div_val
-
-            if '3CHAN' in args.model:
-                train_reshape_val = traindata[0].to(device) / div_val
-                train_aux = traindata[1].to(device)
-
-                #each of the items on the left is of size Bx2
-                #embed()
-                query_imgs, pos_imgs, neg_imgs, goal_imgs = torch.split(train_reshape_val, 2, dim=1)
-                query_aux, pos_aux, neg_aux, goal_aux = torch.split(train_aux, 2, dim=1)
-
-                query = encodernet(torch.reshape(query_imgs, (query_imgs.shape[0]*query_imgs.shape[1], 3, 84, 84)), torch.reshape(query_aux, (query_aux.shape[0]*query_aux.shape[1], 2)))
-                positives = encodernet(torch.reshape(pos_imgs, (pos_imgs.shape[0]*pos_imgs.shape[1], 3, 84, 84)), torch.reshape(pos_aux, (pos_aux.shape[0]*pos_aux.shape[1], 2)))
-                negatives = encodernet(torch.reshape(neg_imgs, (neg_imgs.shape[0]*neg_imgs.shape[1], 3, 84, 84)), torch.reshape(neg_aux, (neg_aux.shape[0]*neg_aux.shape[1], 2)))
-
-                goals = encodernet(torch.reshape(goal_imgs, (goal_imgs.shape[0]*goal_imgs.shape[1], 3, 84, 84)), torch.reshape(goal_aux, (goal_aux.shape[0]*goal_aux.shape[1], 2)))
-
-            else:
-
-                pos_reshape_val = traindata.to(device) / div_val            
-                #each of the items on the left is of size Bx2
-                query_imgs, pos_imgs, neg_imgs, goal_imgs = torch.split(pos_reshape_val, 2, dim=1)
-
-                
-                query = encodernet(query_imgs.reshape(query_imgs.shape[0]*query_imgs.shape[1], 1, 84, 84))
-                positives = encodernet(pos_imgs.reshape(pos_imgs.shape[0]*pos_imgs.shape[1], 1, 84, 84))
-                negatives = encodernet(neg_imgs.reshape(neg_imgs.shape[0]*neg_imgs.shape[1], 1, 84, 84))
-                goals = encodernet(goal_imgs.reshape(goal_imgs.shape[0]*goal_imgs.shape[1], 1, 84, 84))
-            
-            # allocat classes for queries, positives, negatives and goals
-            posclasses = torch.arange(start=0, end=query_imgs.shape[0]).repeat(2, 1).T
-            goalclasses = torch.arange(start=query_imgs.shape[0], end=query_imgs.shape[0] + goal_imgs.shape[0]).repeat(2,1).T
-            negclasses = torch.arange(start=query_imgs.shape[0]+goal_imgs.shape[0], end=query_imgs.shape[0] + goal_imgs.shape[0] + neg_imgs.shape[0]*2).reshape(neg_imgs.shape[0], 2)
-
-            if 'NVEP' in args.model:
-                loss = loss_func(torch.cat([query, positives, negatives], axis=0),
-                    torch.cat([posclasses.flatten(), posclasses.flatten(), negclasses.flatten()], axis=0))
-            else:
-
-                loss = loss_func(torch.cat([query, positives, negatives, goals], axis=0),
-                    torch.cat([posclasses.flatten(), posclasses.flatten(), negclasses.flatten(), goalclasses.flatten()], axis=0))
-            
-            
-
-        elif 'VIP' in args.model:
-
-            try:
-                negdata = next(negiterator)
-            except StopIteration:
-                negiterator = iter(negloader)
-                negdata = next(negiterator)
-
-            
-
-            
-            if '3CHAN' in args.model:
-                #use only if sample_batch_size > 0
-                negdata[0] = negdata[0].to(device) / div_val
-                negdata[1] = negdata[1].to(device)
-                _, add_mid_imgs, add_midplus_imgs, _ = torch.split(negdata[0], 1, dim=1)
-                _, add_mid_aux, add_midplus_aux, _ = torch.split(negdata[1], 1, dim=1)
-
-                traindata[0] = traindata[0].to(device) / div_val
-                traindata[1] = traindata[1].to(device)
-                start_imgs, mid_imgs, midplus_imgs, end_imgs = torch.split(traindata[0], 1, dim=1)
-                start_aux, mid_aux, midplus_aux, end_aux = torch.split(traindata[1], 1, dim=1)
-
-                start_embed = encodernet(torch.squeeze(start_imgs), torch.squeeze(start_aux))
-                mid_embed = encodernet(torch.squeeze(mid_imgs), torch.squeeze(mid_aux))
-                add_mid_embed = encodernet(torch.squeeze(add_mid_imgs), torch.squeeze(add_mid_aux))
-                midplus_embed = encodernet(torch.squeeze(midplus_imgs), torch.squeeze(midplus_aux))
-                add_midplus_embed = encodernet(torch.squeeze(add_midplus_imgs), torch.squeeze(add_midplus_aux))
-                end_embed = encodernet(torch.squeeze(end_imgs), torch.squeeze(end_aux))
-            
-            else:
-                negdata = negdata.to(device) / div_val
-                traindata = traindata.to(device) / div_val
-
-                _, add_mid_imgs, add_midplus_imgs, _ = torch.split(negdata, 1, dim=1)
-                start_imgs, mid_imgs, midplus_imgs, end_imgs = torch.split(traindata, 1, dim=1)
-
-                start_imgs = start_imgs.reshape(start_imgs.shape[0], 1, 84, 84)
-                mid_imgs = mid_imgs.reshape(mid_imgs.shape[0], 1, 84, 84)
-                add_mid_imgs = add_mid_imgs.reshape(add_mid_imgs.shape[0], 1, 84, 84)
-                midplus_imgs = midplus_imgs.reshape(midplus_imgs.shape[0], 1, 84, 84)
-                add_midplus_imgs = add_midplus_imgs.reshape(add_midplus_imgs.shape[0], 1, 84, 84)
-                end_imgs = end_imgs.reshape(end_imgs.shape[0], 1, 84, 84)
-
-                start_embed = encodernet(start_imgs)
-                mid_embed = encodernet(mid_imgs)
-                add_mid_embed = encodernet(add_mid_imgs)
-                midplus_embed = encodernet(midplus_imgs)
-                add_midplus_embed = encodernet(add_midplus_imgs)
-                end_embed = encodernet(end_imgs)
-
-            loss = loss_func(start_embed, mid_embed, add_mid_embed, midplus_embed, add_midplus_embed, end_embed)
         
-        else:
-            (img, target) = negdata
-            image_val = img.to(device) / div_val
-            targ = target.to(device) / div_val
-
-            recon_data, mu, logvar = encodernet(image_val)
-
-            # in the constrastive case, we get a batch of pair of embeddings and wheather they are positive or negative
-            loss = loss_func(recon_data, targ, mu, logvar, args.kl_weight)
-
-        # break
-        loss_iter.append(loss.item())
-        loss_log.append(loss.item())
 
         #print(np.mean(np.array(loss_iter)))
         # from IPython import embed; embed()
@@ -530,26 +276,10 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
     print(np.mean(np.array(loss_iter)))
     if 'VAE' in args.model:
         auxval = str(args.kl_weight)
-    elif 'VIP' in args.model:
-        auxval = str(args.max_len) + '_' + str(args.min_len)
-    elif 'VEP' in args.model:
-        auxval = str(args.max_len) + '_' + str(args.temperature) + '_' + str(args.dthresh) + '_' + str(args.negtype)
-    elif 'TCN' in args.model:
-        auxval = str(args.max_len)
-    elif 'SOM' in args.model:
-        auxval = str(args.sgamma)
-    else:
-        auxval = str(args.temperature)
-    
-
-    if 'DUAL' in args.model:
-        log_write(encodernet, 'a')
 
     # continue
     # Save a checkpoint with a specific filename
 
-    #if epoch % (args.nepoch/20) == 0:
-    #if epoch % (args.nepoch/4) == 0:
     if True:
         print("saving checkpoint")
         if 'FPV' in args.model:
