@@ -106,83 +106,6 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
                 # episode = torch.flatten(episode)
                 # target = torch.cat((torch.unsqueeze(value, 1), torch.unsqueeze(episode, 1)), axis=1)
 
-            if 'DUAL' in args.model:
-                # for now we are testing with the same game
-                # so the adapter learns an identity function
-                negimg_reshape_val = negdata[0].to(device) / div_val
-                posimg_reshape_val = posdata[0].to(device) / div_val
-                negtar_reshape_val = negdata[1].to(device)
-                postar_reshape_val = posdata[1].to(device)
-
-                tquery = teachernet(negimg_reshape_val)
-                equery = encodernet(posimg_reshape_val)
-                tclass = negtar_reshape_val
-                eclass = postar_reshape_val
-                loss = loss_func(torch.cat([tquery, equery], axis=0), torch.cat([tclass, eclass], axis=0))
-
-
-
-            # if its 4stack_cont_atari
-            else:
-                neg_reshape_val = negdata.to(device) / div_val
-                pos_reshape_val = posdata.to(device) / div_val
-
-                # batch_size, num_negative, embedding_size = 32, 48, 128
-                # sample_batch_size -> number of positives/queries
-                # train_batch_size -> number of negatives
-                query_imgs, pos_imgs = torch.split(pos_reshape_val, 1, dim=1)
-
-                #ONLY FOR CONT!!!
-                if '1CHANLSTM' in args.model:
-                    encodernet.init_hs(args.train_batch_size)
-
-                    neg_reshape_val = torch.unsqueeze(torch.squeeze(neg_reshape_val), axis=1)
-                    query_imgs = torch.unsqueeze(torch.squeeze(query_imgs), axis=1)
-                    pos_imgs = torch.unsqueeze(torch.squeeze(pos_imgs), axis=1)
-
-                    #maxseq = max(neg_reshape_val.shape[1], query_imgs.shape[1])
-                    #zs = np.zeros((self.max_seq_length - inputtraj.shape[0],) + inputtraj.shape[1:]).astype(np.float32)
-
-                    #neg_reshape_val = torch.unsqueeze(neg_reshape_val, axis=2)
-                    #query_imgs = torch.reshape(query_imgs, (args.train_batch_size, neg_reshape_val.shape[1], 1, 84, 84))
-                    #pos_imgs = torch.reshape(pos_imgs, (args.train_batch_size, pos_imgs.shape[1], 1, 84, 84))
-
-                elif '3CHANLSTM' in args.model:
-                    encodernet.init_hs(args.train_batch_size)
-                    neg_reshape_val = torch.squeeze(neg_reshape_val)
-                    query_imgs = torch.squeeze(query_imgs)
-                    pos_imgs = torch.squeeze(pos_imgs)
-
-
-                elif '1CHAN_CONT' in args.model:
-                    query_imgs = torch.unsqueeze(torch.squeeze(query_imgs), axis=1)
-                    pos_imgs = torch.unsqueeze(torch.squeeze(pos_imgs), axis=1)
-                    
-                elif '3CHAN_CONT' in args.model:
-                    query_imgs = torch.squeeze(query_imgs)
-                    pos_imgs = torch.squeeze(pos_imgs)
-
-                else:
-                    query_imgs = torch.squeeze(query_imgs)
-                    pos_imgs = torch.squeeze(pos_imgs)
-
-                query = encodernet(query_imgs)
-                positives = encodernet(pos_imgs)
-                negatives = encodernet(neg_reshape_val)
-
-                #EMBED HERE!
-                #embed()
-
-                if 'LSTM' in args.model:
-                    query = query.reshape((-1, 512))
-                    positives = positives.reshape((-1, 512))
-                    negatives = negatives.reshape((-1, 512))
-
-                # allocat classes for queries, positives and negatives
-                posclasses = torch.arange(start=0, end=query.shape[0])
-                negclasses = torch.arange(start=query.shape[0], end=query.shape[0] + negatives.shape[0])
-                loss = loss_func(torch.cat([query, positives, negatives], axis=0),
-                                 torch.cat([posclasses, posclasses, negclasses], axis=0))
 
         elif 'LSTM' in args.model:
             # CHEN
@@ -265,21 +188,19 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             encodernet.zero_grad()
         loss.backward()
         optimizer.step()
-        if 'VAE' in args.model:
-            auxval = args.kl_weight
-        else:
-            auxval = args.temperature
+
 
 
     print("learning rate:", optimizer.param_groups[0]['lr'])
-
     print(np.mean(np.array(loss_iter)))
+
     if 'VAE' in args.model:
         auxval = str(args.kl_weight)
+    else:
+        auxval = str(args.temperature)
 
     # continue
     # Save a checkpoint with a specific filename
-
     if True:
         print("saving checkpoint")
         if 'FPV' in args.model:
