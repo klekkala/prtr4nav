@@ -1,0 +1,13 @@
+beogym==0.0.1
+gym==0.23.1
+imageio==2.27.0
+ipython==8.14.0
+matplotlib==3.7.1
+numpy==1.23.5
+opencv_python_headless==4.8.1.78
+Pillow==10.1.0
+pytorch_metric_learning==2.2.0
+ray==2.1.0
+torch==1.13.1+cu116
+torchvision==0.14.1+cu116
+tqdm==4.65.0
