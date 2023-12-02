@@ -37,10 +37,10 @@ args = get_args()
 
 
 if 'FPV' in args.model:
-    fpvencoder, bevencoder, negloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
+    fpvencoder, bevencoder, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
         True)
 else:
-    encodernet, negloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(True)
+    encodernet, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(True)
 
 
 if 'FPV' in args.model:
@@ -52,17 +52,6 @@ elif 'LSTM' in args.model and 'CARLA' in args.model:
 else:
     loss_func = utils.vae_loss
 
-
-
-if 'LSTM' in args.model and 'CARLA' in args.model:
-    latent_cls = []   # contains representations of 10 bev classes
-    for i in range(10):
-        img = cv2.imread("/lab/kiran/img2cmd/manual_label/"+str(i)+".jpg", cv2.IMREAD_GRAYSCALE)
-        img = np.expand_dims(img, axis=(0, 1))
-
-        image_val = torch.tensor(img).to(device) / div_val
-        z, _, _ = encodernet.encode(image_val)
-        latent_cls.append(z)
 
 # %% Start Training
 for epoch in trange(start_epoch, args.nepoch, leave=False):
@@ -76,7 +65,7 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
 
     if 'CONT' in args.model or 'VIP' in args.model or 'VEP' in args.model or 'SOM' in args.model:
         encodernet.train()
-        negiterator = iter(negloader)
+        negiterator = iter(trainloader)
     if 'BEV_VAE' in args.model:
         encodernet.train()
         anchors = []
@@ -93,23 +82,9 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
 
 
     for i, traindata in enumerate(tqdm(trainloader, leave=False)):
-
-        if 'CONT' in args.model:
-            try:
-                posdata = next(positerator)
-            except StopIteration:
-                positerator = iter(posloader)
-                posdata = next(positerator)
-                # (img, value, episode) = data
-                # img = img.reshape(img.shape[0]*img.shape[1], img.shape[2], img.shape[3], img.shape[4])
-                # value = torch.flatten(value)
-                # episode = torch.flatten(episode)
-                # target = torch.cat((torch.unsqueeze(value, 1), torch.unsqueeze(episode, 1)), axis=1)
-
-
-        elif 'LSTM' in args.model:
+        if 'LSTM' in args.model:
             # CHEN
-            (img, target, action) = negdata
+            (img, target, action) = traindata
             if len(action[0]) <= 1:
                 continue
             ids, sim, image_embed = encodernet.encoder(img[0])
@@ -134,7 +109,7 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             loss = loss_func(z_gt, mus, sigmas, logpi) / z_gt.shape[-1]
 
         elif "FPV_RECONBEV_CARLA" in args.model:
-            (img, target) = negdata
+            (img, target) = traindata
             image_val = img.to(device) / div_val
             targ = target.to(device) / div_val
 
@@ -160,7 +135,7 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
 
 
         elif 'FPV' in args.model:
-            (img, target) = negdata
+            (img, target) = traindata
             image_val = img.to(device) / div_val
             targ = target.to(device) / div_val
 
@@ -171,12 +146,19 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             embedclasses = torch.arange(start=0, end=img.shape[0])
 
             # in the constrastive case, we get a batch of pair of embeddings and wheather they are positive or negative
-            #loss = loss_func(torch.cat([image_embed, targ_embed], axis=0), torch.cat([embedclasses, embedclasses], axis=0))
-            loss = loss_func(image_embed, targ_embed, args.temperature, embedclasses)
+            loss = loss_func(torch.cat([image_embed, targ_embed], axis=0), torch.cat([embedclasses, embedclasses], axis=0))
+            #loss = loss_func(image_embed, targ_embed, args.temperature, embedclasses)
             
             # regression
-#            loss = F.mse_loss(image_embed, targ_embed)
+            #loss = F.mse_loss(image_embed, targ_embed)
+        else:
+            (img, target) = traindata
+            image_val = img.to(device) / div_val
+            targ = target.to(device) / div_val
+            recon_data, mu, logvar = encodernet(image_val)
 
+            # in the constrastive case, we get a batch of pair of embeddings and wheather they are positive or negative
+            loss = loss_func(recon_data, targ, mu, logvar, args.kl_weight)
         
 
         #print(np.mean(np.array(loss_iter)))

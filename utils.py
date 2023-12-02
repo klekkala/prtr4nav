@@ -36,10 +36,10 @@ class PadSequence:
 def get_data_STL10(negset, neg_batch_size, transform, posset=None, pos_batch_size=None):
     if negset != None:
         print("Loading trainset...")
-        if 'LSTM' in args.model:
-            negloader = DataLoader(negset, batch_size=neg_batch_size, shuffle=True, num_workers=8, pin_memory=True)
-        else:
-            negloader = DataLoader(negset, batch_size=neg_batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    #    if 'LSTM' in args.model:
+    #        negloader = DataLoader(negset, batch_size=neg_batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    #    else:
+        negloader = DataLoader(negset, batch_size=neg_batch_size, shuffle=True, num_workers=1, pin_memory=True)
 
     if posset != None:
         print("Loading testset...")

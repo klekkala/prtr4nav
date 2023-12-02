@@ -35,11 +35,12 @@ args = get_args()
 
 def initialize(is_train):
     if 'CARLA' in args.model:
-        root_dir = "/home/tmp/kiran/"
+        root_dir = "/home6/tmp/kiran/"
     elif 'BEV_LSTM' in args.model:
-        root_dir = "/home/tmp/kiran/"
+        root_dir = "/home6/tmp/kiran/"
     else:
-        root_dir = "/dev/shm/"
+        #root_dir = "/dev/shm/"
+        root_dir = "/home6/tmp/kiran/"
     curr_dir = os.getcwd()
     use_cuda = torch.cuda.is_available()
     print(use_cuda)

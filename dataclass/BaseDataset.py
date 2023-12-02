@@ -81,7 +81,6 @@ class BaseDataset(Dataset):
                 print("lksjdflkjsalk;jflk;sajkal;sjdflk;jf")
                 self.obs_nps.append(np.load(root + '/fpv.npy', mmap_mode='r'))
                 self.bev_nps.append(np.load(root + '/bev.npy', mmap_mode='r'))
-
                 if action:
                     self.action_nps.append(np.load(root + '/action.npy', mmap_mode='r'))
 

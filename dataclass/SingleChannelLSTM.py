@@ -44,6 +44,5 @@ class SingleChannelLSTM(BaseDataset):
         #    target = self.transform(target)
         #action = np.concatenate(
         #    (action, np.zeros((self.max_seq_length - action.shape[0],) + (action.shape[-1],))))  # padding
-
         return source.astype(np.float32), target.astype(np.float32), action.astype(np.float32)
 
