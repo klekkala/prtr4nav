@@ -35,7 +35,7 @@ Use the '**--model**' option to select the model you want to train:
 - **FPV_BEV_CARLA**: Finetuning ResNet model.
 - **BEV_LSTM_CARLA**: Training the LSTM model.
 
-Sample Usage: /
+Sample Usage:
 1. Training the VAE model. '**SAVE_DIR**' is where your checkpoints are saved.'**MODEL_PATH**' is the name of the checkpoint file. '**EXP_NAME**' is where your dataset is stored.
 ```
 python train.py --model BEV_VAE_CARLA --load_checkpoint --save_dir \[SAVE_DIR\] --model_path \[MODEL_PATH\] --expname \[EXP_NAME\] --nepoch 100 --train_batch_size 256 --sample_batch_size 64
