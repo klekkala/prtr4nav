@@ -26,7 +26,7 @@ from models.LSTM import MDLSTM as BEVLSTM
 from models.resnet import ResNet
 from models.BEVEncoder import BEVEncoder
 from models.atari_vae import Encoder, TEncoder, TBeoEncoder
-from dataclass import BaseDataset, CarlaBEV, ThreeChannel, SingleChannel, SingleChannelLSTM, SingleAtari101, NegContSingleChan, PosContLSTM, NegContLSTM, TCNContSingleChan, PosContThreeLSTM, NegContThreeLSTM, CarlaFPVBEV, NegContThreeChan, PosContThreeChan, VEPContSingleChan, BeogymVIPDataLoad, AtariVIPDataLoad, TCNContSingleChan, SOMContSingleChan, TCNContThreeChan, SOMContThreeChan, VEPContThreeChan
+from dataclass import BaseDataset, CarlaBEV, PosContLSTM, NegContLSTM, PosContThreeLSTM, NegContThreeLSTM, CarlaFPVBEV, CarlaFPVBEVTCN, CarlaFPVTCN
 import utils
 from arguments import get_args
 
@@ -96,6 +96,39 @@ def initialize(is_train):
         div_val = 255.0
 
 
+    #Training FPV BEV Encoder
+    elif args.model == "FPV_BEV_TCN_CARLA":
+
+        #negset = NegContThreeChan.NegContThreeChan(root_dir=root_dir + args.expname, transform=transform)
+        trainset = CarlaFPVBEVTCN.CarlaFPVBEVTCN(root_dir=root_dir + args.expname, transform=transform, pos_distance=args.max_len, truncated=False)
+
+        fpvencoder = ResNet(512).to(device)
+        
+        #vaeencoder
+        bevencoder = VAEBEV(channel_in=1, ch=16, z=512).to(device)
+        
+        #vae_model_path = "/lab/kiran/ckpts/pretrained/carla/BEV_VAE_CARLA_RANDOM_BEV_CARLA_STANDARD_0.01_0.01_256_64.pt"
+        #vae_ckpt = torch.load(vae_model_path, map_location="cpu")
+        #bevencoder.load_state_dict(vae_ckpt['model_state_dict'])
+        
+        #I UNFROZE IT!!!!!
+        #bevencoder.eval()
+        #for param in bevencoder.parameters():
+        #    param.requires_grad = False
+
+        print(root_dir, args.expname)
+        div_val = 255.0
+
+    elif args.model == "FPV_TCN_CARLA":
+
+        #negset = NegContThreeChan.NegContThreeChan(root_dir=root_dir + args.expname, transform=transform)
+        trainset = CarlaFPVTCN.CarlaFPVTCN(root_dir=root_dir + args.expname, transform=transform, pos_distance=args.max_len, truncated=False)
+
+        fpvencoder = ResNet(512).to(device)
+        
+        print(root_dir, args.expname)
+        div_val = 255.0
+
     else:
         raise ("Not Implemented Error")
 
@@ -117,8 +150,10 @@ def initialize(is_train):
     
     
     # setup optimizer
-    if 'FPV' in args.model:
+    if 'FPV_BEV' in args.model:
         optimizer = optim.Adam(list(fpvencoder.parameters()) + list(bevencoder.parameters()), lr=args.lr, betas=(0.5, 0.999))
+    elif 'FPV_' in args.model:
+        optimizer = optim.Adam(list(fpvencoder.parameters()), lr=args.lr, betas=(0.5, 0.999))
     else:
         optimizer = optim.Adam(encodernet.parameters(), lr=args.lr, betas=(0.5, 0.999))
     # Loss function
@@ -138,10 +173,11 @@ def initialize(is_train):
         else:
             auxval = args.temperature
         if args.model_path == "":
+            model_path = "FPV_BEV_CARLA_CARLA_FPVBEV_SMALL_TRAIN_STANDARD_0.1_128_512_0.0001_12.pt"
             #this one will throw a bug!!!!
-            model_path = args.save_dir + args.model + "_" + (args.expname).upper() + "_" + (
-                args.arch).upper() + "_" + str(auxval) + "_" + str(args.sgamma) + "_" + str(
-                args.train_batch_size) + "_" + str(args.sample_batch_size) + "_" + str(args.lr) + "_" + str(epoch) + ".pt"
+            #model_path = args.save_dir + args.model + "_" + (args.expname).upper() + "_" + (
+            #    args.arch).upper() + "_" + str(auxval) + "_" + str(args.sgamma) + "_" + str(
+            #    args.train_batch_size) + "_" + str(args.sample_batch_size) + "_" + str(args.lr) + "_" + str(args.nepoch) + ".pt"
         else:
             model_path = args.save_dir + args.model_path
         
@@ -170,5 +206,7 @@ def initialize(is_train):
     #Return all the collected variables
     if 'FPV_BEV' in args.model or "FPV_RECONBEV_CARLA" in args.model:
         return fpvencoder, bevencoder, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir    
+    elif 'FPV_' in args.model:
+        return fpvencoder, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir    
     else:
         return encodernet, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir

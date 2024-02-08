@@ -36,15 +36,16 @@ args = get_args()
 
 
 
-if 'FPV' in args.model:
+if 'FPV_BEV' in args.model:
     fpvencoder, bevencoder, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(
         True)
+elif 'FPV' in args.model:
+    fpvencoder, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize( True)
 else:
     encodernet, trainloader, div_val, start_epoch, loss_log, optimizer, device, curr_dir = initial.initialize(True)
 
 
 if 'FPV' in args.model:
-    #loss_func = utils.clip_loss
     loss_func = losses.ContrastiveLoss()
 elif 'LSTM' in args.model and 'CARLA' in args.model:
     #loss_func = nn.MSELoss()
@@ -74,9 +75,11 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             img = np.expand_dims(img, axis=(0, 1))
             img_val = torch.tensor(img).to(device) / 255.0
             anchors.append(img_val)
-    elif 'FPV' in args.model:
+    elif 'FPV_BEV' in args.model:
         fpvencoder.train()
         bevencoder.train()
+    elif 'FPV_' in args.model:
+        fpvencoder.train()
     else:
         encodernet.train()
 
@@ -133,8 +136,75 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             # regression
 #            loss = F.mse_loss(image_embed, targ_embed)
 
+        elif 'FPV_TCN_CARLA' in args.model:
+            img = traindata
+            image_val = img.to(device) / div_val
 
-        elif 'FPV' in args.model:
+
+            query_imgs, pos_imgs, neg_imgs = torch.split(image_val, 1, dim=1)
+            query = fpvencoder(torch.squeeze(query_imgs))
+            positives = fpvencoder(torch.squeeze(pos_imgs))
+            negatives = fpvencoder(torch.squeeze(neg_imgs))
+
+
+
+
+            temporal_loss_func = losses.ContrastiveLoss()
+
+            posclasses = torch.arange(start=0, end=query.shape[0])
+            negclasses = torch.arange(start=query.shape[0], end=query.shape[0] + negatives.shape[0])
+            loss = temporal_loss_func(torch.cat([query, positives, negatives], axis=0),
+                            torch.cat([posclasses, posclasses, negclasses], axis=0))
+
+        
+        elif 'FPV_BEV_TCN_CARLA' in args.model:
+            (img, target) = traindata
+            image_val = img.to(device) / div_val
+            targ = target.to(device) / div_val
+
+
+            query_imgs, pos_imgs, neg_imgs = torch.split(image_val, 1, dim=1)
+            query = fpvencoder(torch.squeeze(query_imgs))
+            positives = fpvencoder(torch.squeeze(pos_imgs))
+            negatives = fpvencoder(torch.squeeze(neg_imgs))
+
+
+
+
+            temporal_loss_func = losses.ContrastiveLoss()
+
+            posclasses = torch.arange(start=0, end=query.shape[0])
+            negclasses = torch.arange(start=query.shape[0], end=query.shape[0] + negatives.shape[0])
+            temporal_loss = temporal_loss_func(torch.cat([query, positives, negatives], axis=0),
+                            torch.cat([posclasses, posclasses, negclasses], axis=0))
+
+
+            # in the constrastive case, we get a batch of pair of embeddings and wheather they are positive or negative
+            #temporal_loss = temporal_loss_func(torch.cat([image_embed, targ_embed], axis=0), torch.cat([embedclasses, embedclasses], axis=0))
+            #temporal_loss = temporal_loss_func(image_embed, targ_embed, args.temperature, embedclasses)
+            
+            # regression
+            #bev_loss_func = F.mse_loss
+            image_embed = fpvencoder(image_val.reshape(image_val.shape[0]*image_val.shape[1], 3, 84, 84))
+            
+            #use only mu for targ_embed
+            #_, targ_embed, targ_embed_logvar = bevencoder(targ.reshape(targ.shape[0]*targ.shape[1], 1, 64, 64))
+            
+            recon_data = bevencoder.recon(image_embed)
+            
+            #kl weight is .01
+            vae_loss = utils.vae_loss(recon_data, targ.reshape(targ.shape[0]*targ.shape[1], 1, 64, 64), image_embed, image_embed, 0.0)
+            #vae_loss = utils.vae_loss(recon_data, targ.reshape(targ.shape[0]*targ.shape[1], 1, 64, 64), targ_embed, targ_embed_logvar, 0.01)
+
+            #bev_loss = bev_loss_func(image_embed, targ_embed)
+            #bev_loss = utils.clip_loss
+
+            #loss = temporal_loss + bev_loss + vae_loss
+            loss = temporal_loss + vae_loss
+            #loss = bev_loss + vae_loss
+
+
+        elif 'FPV_' in args.model:
             (img, target) = traindata
             image_val = img.to(device) / div_val
             targ = target.to(device) / div_val
@@ -146,11 +216,15 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
             embedclasses = torch.arange(start=0, end=img.shape[0])
 
             # in the constrastive case, we get a batch of pair of embeddings and wheather they are positive or negative
-            loss = loss_func(torch.cat([image_embed, targ_embed], axis=0), torch.cat([embedclasses, embedclasses], axis=0))
+            #loss = loss_func(torch.cat([image_embed, targ_embed], axis=0), torch.cat([embedclasses, embedclasses], axis=0))
             #loss = loss_func(image_embed, targ_embed, args.temperature, embedclasses)
             
             # regression
-            #loss = F.mse_loss(image_embed, targ_embed)
+            loss = F.mse_loss(image_embed, targ_embed)
+
+
+
+
         else:
             (img, target) = traindata
             image_val = img.to(device) / div_val
@@ -163,11 +237,16 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
 
         #print(np.mean(np.array(loss_iter)))
         # from IPython import embed; embed()
-        if 'FPV' in args.model:
+        if 'FPV_BEV' in args.model:
             fpvencoder.zero_grad()
             bevencoder.zero_grad()
+        elif 'FPV_' in args.model:
+            fpvencoder.zero_grad()
         else:
             encodernet.zero_grad()
+        
+        
+        #print(loss)
         loss.backward()
         optimizer.step()
 
@@ -185,7 +264,7 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
     # Save a checkpoint with a specific filename
     if True:
         print("saving checkpoint")
-        if 'FPV' in args.model:
+        if 'FPV_BEV' in args.model:
             save_dict = {
                 'epoch': epoch,
                 'loss_log': loss_log,
@@ -193,6 +272,13 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
                 'bev_state_dict': bevencoder.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
             }
+        elif 'FPV_' in args.model:
+            save_dict = {
+                'epoch': epoch,
+                'loss_log': loss_log,
+                'model_state_dict': fpvencoder.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+            }    
         else:
             save_dict = {
                 'epoch': epoch,
@@ -200,4 +286,4 @@ for epoch in trange(start_epoch, args.nepoch, leave=False):
                 'model_state_dict': encodernet.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
             }    
-        torch.save(save_dict, args.save_dir + args.model + "_" + (args.expname).upper() + "_" + (args.arch).upper() + "_" + auxval + "_" + str(args.train_batch_size) + "_" + str(args.sample_batch_size) + "_" + str(args.lr) + "_" + str(epoch) + ".pt")
+        torch.save(save_dict, args.save_dir + args.model + "_" + (args.expname).upper() + "_" + (args.arch).upper() + "_" + auxval + "_" + str(args.train_batch_size) + "_" + str(args.sample_batch_size) + "_" + str(args.lr) + "_" + str(args.nepoch) + ".pt")

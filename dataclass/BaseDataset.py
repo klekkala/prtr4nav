@@ -29,15 +29,16 @@ class BaseDataset(Dataset):
         self.aux_nps = []
 
 
-        terminal_file = 'terminal_truncated.npy' if truncated else 'terminal'
-        value_file = 'value_truncated.npy' if truncated else 'value'
-        value_map = 'sorted_value_mapping_truncated' if truncated else 'value_mapping'
-        id_dict_file = 'id_dict_truncated.npy' if truncated else 'id_dict'
-        limit_file = 'limit_truncated.npy' if truncated else 'limit'
-        episode_file = 'episode_truncated.npy' if truncated else 'episode'
+        terminal_file = 'terminal_truncated.npy' if truncated else 'terminal.npy'
+        value_file = 'value_truncated.npy' if truncated else 'value.npy'
+        value_map = 'sorted_value_mapping_truncated' if truncated else 'value_mapping.npy'
+        id_dict_file = 'id_dict_truncated.npy' if truncated else 'id_dict.npy'
+        limit_file = 'limit_truncated.npy' if truncated else 'limit.npy'
+        episode_file = 'episode_truncated.npy' if truncated else 'episode.npy'
         
 
         exten = ""
+        print(self.root_dir)
         if 'carla' in self.root_dir or 'trained' in self.root_dir or '3chan' in self.root_dir:
             exten = '.npy'
 
@@ -93,6 +94,8 @@ class BaseDataset(Dataset):
                 if episode:
                     self.episode_nps.append(np.load(root + '/episode.npy', mmap_mode='r'))
                     self.limit_nps.append(np.load(root + '/limit.npy', mmap_mode='r'))
+                    ab = np.load(root + '/id_dict.npy', allow_pickle=True)
+                    self.id_dict.append(ab[()])
 
                 if self.use_lstm:
                     ab = np.load(root + '/id_dict.npy', allow_pickle=True)

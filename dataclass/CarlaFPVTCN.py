@@ -4,13 +4,16 @@ from collections import defaultdict
 from PIL import Image
 import numpy as np
 import os
+import bisect
 import random
 from IPython import embed
-import torch
 
-class TCNContThreeChan(BaseDataset):
-    def __init__(self, root_dir, pos_distance, truncated, transform=None, value=False, episode=True, goal=True):
-        super().__init__(root_dir, transform, action=True, value=value, reward=True, episode=episode, terminal=True, goal=goal, truncated=truncated, use_lstm=False)
+class CarlaFPVTCN(BaseDataset):
+    #def __init__(self, root_dir, transform=None):
+    #    super().__init__(root_dir, transform, action=False, reward=False, terminal=False, goal=False)
+    
+    def __init__(self, root_dir, pos_distance, transform=None, value=False, episode=True, goal=False, use_lstm=False, truncated=True):
+        super().__init__(root_dir, transform, action=True, value=value, reward=True, episode=episode, terminal=True, goal=goal, use_lstm=use_lstm, truncated=truncated)
 
         self.pos_distance = pos_distance
         assert (self.pos_distance <= 12)
@@ -18,15 +21,28 @@ class TCNContThreeChan(BaseDataset):
 
         #self.sample_next = sample_next
 
+
+
     def __getitem__(self, item):
+
         img, value, episode = [], [], []
-        file_ind = int(item/1000000)
-        im_ind = item - (file_ind*1000000)
-        
+        file_ind = bisect.bisect_right(self.each_len, item)
+        if file_ind == 0:
+            im_ind = item
+        else:
+            im_ind = item - self.each_len[file_ind-1]
+
         left_pos = self.pos_distance
         right_pos = self.pos_distance
+        #print(len(self.limit_nps[file_ind]), len(self.episode_nps[file_ind]), im_ind, len(self.id_dict))
+        while (self.limit_nps[file_ind][im_ind] - self.id_dict[file_ind][self.episode_nps[file_ind][im_ind]] < 3):
+            if self.each_len[file_ind] - self.each_len[file_ind-1] > 0:
+                im_ind = random.randint(0, self.each_len[file_ind] - self.each_len[file_ind-1])
+            else:
+                im_ind = 0
 
-        assert(self.limit_nps[file_ind][im_ind] - self.id_dict[file_ind][self.episode_nps[file_ind][im_ind]] >= 3)
+
+
         if self.pos_distance > 0:
             
             #set the right boundary
@@ -92,6 +108,12 @@ class TCNContThreeChan(BaseDataset):
         assert (abs(negind-im_ind) > abs(posind - im_ind))
         #sample anchor, positive and negative
 
-        img = [np.moveaxis(self.obs_nps[file_ind][im_ind].astype(np.float32), -1, 0), np.moveaxis(self.obs_nps[file_ind][posind].astype(np.float32), -1, 0), np.moveaxis(self.obs_nps[file_ind][negind].astype(np.float32), -1, 0)]
-        aux = [self.aux_nps[file_ind][im_ind].astype(np.float32), self.aux_nps[file_ind][posind].astype(np.float32), self.aux_nps[file_ind][negind].astype(np.float32)]
-        return np.stack(img, axis=0), np.stack(aux, axis=0)
+        fpv = [np.moveaxis(self.obs_nps[file_ind][im_ind].astype(np.float32), -1, 0), np.moveaxis(self.obs_nps[file_ind][posind].astype(np.float32), -1, 0), np.moveaxis(self.obs_nps[file_ind][negind].astype(np.float32), -1, 0)]
+
+        #if self.transform is not None:
+        #    img = self.transform(img)
+        #    target = self.transform(target)
+
+
+        
+        return np.stack(fpv, axis=0)
