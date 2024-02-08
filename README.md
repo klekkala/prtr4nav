@@ -31,20 +31,6 @@ Your dataset should be structured as follows:
 ### Training Models
 To train a model, run the '**train.py**' script. Use the '**-h**' option to see all available training options.
 Use the '**--model**' option to select the model you want to train:
-- **BEV_VAE_CARLA**: Training the VAE model.
 - **FPV_BEV_CARLA**: Finetuning ResNet model.
-- **BEV_LSTM_CARLA**: Training the LSTM model.
-
-Sample Usage:
-1. Training the VAE model. '**SAVE_DIR**' is where your checkpoints are saved.'**MODEL_PATH**' is the name of the checkpoint file. '**EXP_NAME**' is where your dataset is stored.
-```
-python train.py --model BEV_VAE_CARLA --load_checkpoint --save_dir \[SAVE_DIR\] --model_path \[MODEL_PATH\] --expname \[EXP_NAME\] --nepoch 100 --train_batch_size 256 --sample_batch_size 64
-```
-2. Finetuning ResNet model. Change the '**vae_model_path**' in '**initial.py**' to point to the location of your VAE checkpoint.
-```
-python train.py --model FPV_BEV_CARLA --load_checkpoint --save_dir \[SAVE_DIR\] --model_path \[MODEL_PATH\] --expname \[EXP_NAME\] --nepoch 100 --train_batch_size 128 --sample_batch_size 512
-```
-3. Training the LSTM model.
-```
-python train.py --model BEV_LSTM_CARLA --load_checkpoint --save_dir \[SAVE_DIR\] --model_path \[MODEL_PATH\] --expname \[EXP_NAME\] --nepoch 100 --train_batch_size 1 --sample_batch_size 512
-```
+- **BEV_VAE_CARLA**: Training the VAE model.
+- **BEV_LSTM_CARLA**: Training the LSTM model. 
